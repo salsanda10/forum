@@ -1,238 +1,67 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Форум</title>
-<style>
-body {
-  font-family: system-ui, sans-serif;
-  background: #f7f7f7;
-  color: #333;
-  margin: 0;
-  padding: 0;
-}
-.container {
-  max-width: 800px;
-  margin: 20px auto;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  padding: 20px;
-}
-h1 { text-align: center; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Форум</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; }
+    .container { background: white; padding: 20px; border-radius: 10px; max-width: 800px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    textarea, input[type=text] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+    button { padding: 10px 20px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .topic { background: #fafafa; padding: 15px; margin-top: 15px; border-radius: 5px; border: 1px solid #ddd; }
+  </style>
 
-input, button {
-  width: 100%;
-  padding: 10px;
-  margin: 5px 0;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-button {
-  background: #0077ff;
-  color: #fff;
-  font-weight: bold;
-  cursor: pointer;
-}
-button:hover { background: #005ccc; }
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 5px;
-}
-.toolbar button {
-  width: auto;
-  padding: 6px 10px;
-  background: #eee;
-  color: #333;
-  border: 1px solid #ccc;
-}
-.toolbar button:hover { background: #ccc; }
-
-#topicText[contenteditable] {
-  min-height: 120px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 10px;
-  background: #fafafa;
-  margin-bottom: 10px;
-}
-
-.topic {
-  border-left: 4px solid #0077ff;
-  margin: 10px 0;
-  padding: 10px;
-  border-radius: 6px;
-  background: #f9f9f9;
-}
-small { color: #666; }
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.logout {
-  background: #ff4f4f;
-}
-.logout:hover { background: #c93c3c; }
-
-img {
-  max-width: 100%;
-  border-radius: 6px;
-  margin: 5px 0;
-}
-</style>
+  <!-- Подключаем TinyMCE -->
+  <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+  <script>
+    tinymce.init({
+      selector: '#content',
+      height: 300,
+      plugins: 'image link lists',
+      toolbar: 'undo redo | bold italic underline | bullist numlist | link image',
+      menubar: false,
+      branding: false,
+      images_upload_handler: function (blobInfo, success, failure) {
+        const reader = new FileReader();
+        reader.onload = function() { success(reader.result); };
+        reader.readAsDataURL(blobInfo.blob());
+      }
+    });
+  </script>
 </head>
 <body>
-
-<div class="container">
-  <h1>Мини-Форум</h1>
-
-  <div id="auth">
-    <h2>Вход / Регистрация</h2>
-    <input id="username" placeholder="Имя пользователя">
-    <input id="password" placeholder="Пароль" type="password">
-    <button onclick="register()">Регистрация</button>
-    <button onclick="login()">Войти</button>
-  </div>
-
-  <div id="forum" style="display:none;">
-    <div class="header">
-      <h2>Привет, <span id="userName"></span>!</h2>
-      <button class="logout" onclick="logout()">Выйти</button>
-    </div>
+  <div class="container">
+    <h2>Форум</h2>
+    <p><b>Привет, пользователь!</b></p>
 
     <h3>Создать новую тему</h3>
-    <input id="topicTitle" placeholder="Заголовок темы">
-
-    <div class="toolbar">
-      <button onclick="format('bold')"><b>B</b></button>
-      <button onclick="format('italic')"><i>I</i></button>
-      <button onclick="format('insertUnorderedList')">•</button>
-      <button onclick="format('insertOrderedList')">1.</button>
-      <button onclick="insertLink()">🔗</button>
-      <button onclick="format('formatBlock','blockquote')">❝</button>
-      <button onclick="format('formatBlock','pre')">[code]</button>
-      <button onclick="insertImage()">📷</button>
-      <input type="file" id="imgInput" accept="image/*" style="display:none">
-    </div>
-
-    <div id="topicText" contenteditable="true" placeholder="Текст темы..."></div>
+    <input type="text" id="title" placeholder="Заголовок темы">
+    <textarea id="content" placeholder="Введите текст темы..."></textarea>
     <button onclick="createTopic()">Создать тему</button>
 
     <h3>Темы форума</h3>
     <div id="topics"></div>
   </div>
-</div>
 
-<script>
-let users = JSON.parse(localStorage.getItem('users') || '{}');
-let currentUser = localStorage.getItem('currentUser');
-let topics = JSON.parse(localStorage.getItem('topics') || '[]');
-const auth = document.getElementById('auth');
-const forum = document.getElementById('forum');
-const userName = document.getElementById('userName');
-const imgInput = document.getElementById('imgInput');
+  <script>
+    function createTopic() {
+      const title = document.getElementById('title').value;
+      const content = tinymce.get('content').getContent();
+      if (!title || !content) {
+        alert('Введите заголовок и текст!');
+        return;
+      }
 
-if (currentUser) showForum();
+      const topicDiv = document.createElement('div');
+      topicDiv.className = 'topic';
+      topicDiv.innerHTML = `<h4>${title}</h4><div>${content}</div>`;
+      document.getElementById('topics').prepend(topicDiv);
 
-function saveAll() {
-  localStorage.setItem('users', JSON.stringify(users));
-  localStorage.setItem('topics', JSON.stringify(topics));
-}
-
-function register() {
-  let u = username.value.trim();
-  let p = password.value;
-  if (!u || !p) return alert('Введите логин и пароль!');
-  if (users[u]) return alert('Такой пользователь уже существует!');
-  users[u] = p;
-  localStorage.setItem('users', JSON.stringify(users));
-  currentUser = u;
-  localStorage.setItem('currentUser', u);
-  showForum();
-}
-
-function login() {
-  let u = username.value.trim();
-  let p = password.value;
-  if (!u || !p) return alert('Введите логин и пароль!');
-  if (users[u] !== p) return alert('Неверные данные!');
-  currentUser = u;
-  localStorage.setItem('currentUser', u);
-  showForum();
-}
-
-function logout() {
-  localStorage.removeItem('currentUser');
-  location.reload();
-}
-
-function showForum() {
-  auth.style.display = 'none';
-  forum.style.display = 'block';
-  userName.textContent = currentUser;
-  renderTopics();
-}
-
-function format(cmd, val=null) {
-  document.execCommand(cmd, false, val);
-}
-
-function insertLink() {
-  const url = prompt('Введите ссылку:');
-  if (url) document.execCommand('createLink', false, url);
-}
-
-function insertImage() {
-  imgInput.click();
-}
-
-imgInput.addEventListener('change', () => {
-  const file = imgInput.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.execCommand('insertImage', false, e.target.result);
-  };
-  reader.readAsDataURL(file);
-});
-
-function createTopic() {
-  let title = topicTitle.value.trim();
-  let text = topicText.innerHTML.trim();
-  if (!title || !text) return alert('Введите название и текст темы!');
-  topics.unshift({
-    title,
-    text,
-    author: currentUser,
-    date: new Date().toLocaleString()
-  });
-  topicTitle.value = '';
-  topicText.innerHTML = '';
-  saveAll();
-  renderTopics();
-}
-
-function renderTopics() {
-  const div = document.getElementById('topics');
-  div.innerHTML = '';
-  if (topics.length === 0) {
-    div.innerHTML = '<p>Пока нет тем.</p>';
-    return;
-  }
-  topics.forEach(t => {
-    const el = document.createElement('div');
-    el.className = 'topic';
-    el.innerHTML = `<b>${t.title}</b><br><small>от ${t.author}, ${t.date}</small><br><div>${t.text}</div>`;
-    div.appendChild(el);
-  });
-}
-</script>
-
+      document.getElementById('title').value = '';
+      tinymce.get('content').setContent('');
+    }
+  </script>
 </body>
 </html>
