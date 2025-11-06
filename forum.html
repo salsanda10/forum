@@ -5,31 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Форум</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; }
-    .container { background: white; padding: 20px; border-radius: 10px; max-width: 800px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    textarea, input[type=text] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
-    button { padding: 10px 20px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
-    button:hover { background: #0056b3; }
-    .topic { background: #fafafa; padding: 15px; margin-top: 15px; border-radius: 5px; border: 1px solid #ddd; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background: #f3f3f3;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 800px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input[type=text] {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .topic {
+      background: #fafafa;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
   </style>
 
-  <!-- Подключаем TinyMCE -->
-  <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
-  <script>
-    tinymce.init({
-      selector: '#content',
-      height: 300,
-      plugins: 'image link lists',
-      toolbar: 'undo redo | bold italic underline | bullist numlist | link image',
-      menubar: false,
-      branding: false,
-      images_upload_handler: function (blobInfo, success, failure) {
-        const reader = new FileReader();
-        reader.onload = function() { success(reader.result); };
-        reader.readAsDataURL(blobInfo.blob());
-      }
-    });
-  </script>
+  <!-- Подключаем CKEditor 5 -->
+  <script src="https://cdn.ckeditor.com/ckeditor5/41.2.1/classic/ckeditor.js"></script>
 </head>
 <body>
   <div class="container">
@@ -38,7 +56,7 @@
 
     <h3>Создать новую тему</h3>
     <input type="text" id="title" placeholder="Заголовок темы">
-    <textarea id="content" placeholder="Введите текст темы..."></textarea>
+    <textarea id="editor" placeholder="Введите текст темы..."></textarea>
     <button onclick="createTopic()">Создать тему</button>
 
     <h3>Темы форума</h3>
@@ -46,9 +64,30 @@
   </div>
 
   <script>
+    let editor;
+
+    ClassicEditor
+      .create(document.querySelector('#editor'), {
+        toolbar: [
+          'undo', 'redo', '|',
+          'bold', 'italic', 'underline', '|',
+          'link', 'imageUpload', 'blockQuote', 'numberedList', 'bulletedList'
+        ],
+        simpleUpload: {
+          uploadUrl: 'https://ckeditor.com/apps/ckfinder/upload.php'
+        }
+      })
+      .then(newEditor => {
+        editor = newEditor;
+      })
+      .catch(error => {
+        console.error(error);
+      });
+
     function createTopic() {
-      const title = document.getElementById('title').value;
-      const content = tinymce.get('content').getContent();
+      const title = document.getElementById('title').value.trim();
+      const content = editor.getData().trim();
+
       if (!title || !content) {
         alert('Введите заголовок и текст!');
         return;
@@ -60,7 +99,7 @@
       document.getElementById('topics').prepend(topicDiv);
 
       document.getElementById('title').value = '';
-      tinymce.get('content').setContent('');
+      editor.setData('');
     }
   </script>
 </body>
