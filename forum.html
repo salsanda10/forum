@@ -1,0 +1,167 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Форум в iframe</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f5f5; }
+#container { max-width:800px; margin:20px auto; background:#fff; padding:20px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+input, textarea { width:100%; padding:8px; margin:5px 0; box-sizing:border-box; }
+button { padding:8px 12px; margin-top:5px; }
+.topic { border:1px solid #ccc; padding:10px; margin:10px 0; background:#fafafa; }
+.reply { border-top:1px dashed #ccc; padding:5px 0; margin-top:5px; }
+.error { color:red; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
+a { cursor:pointer; color:blue; text-decoration:underline; }
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="auth">
+    <div id="register-form">
+      <h2>Регистрация</h2>
+      <input type="text" id="reg-username" placeholder="Имя пользователя">
+      <input type="password" id="reg-password" placeholder="Пароль">
+      <button onclick="register()">Зарегистрироваться</button>
+      <p>Уже есть аккаунт? <a onclick="showLogin()">Войти</a></p>
+      <p class="error" id="reg-error"></p>
+    </div>
+    <div id="login-form" style="display:none;">
+      <h2>Вход</h2>
+      <input type="text" id="login-username" placeholder="Имя пользователя">
+      <input type="password" id="login-password" placeholder="Пароль">
+      <button onclick="login()">Войти</button>
+      <p>Нет аккаунта? <a onclick="showRegister()">Регистрация</a></p>
+      <p class="error" id="login-error"></p>
+    </div>
+  </div>
+
+  <div id="forum" style="display:none;">
+    <div class="header">
+      <div>Привет, <span id="current-user"></span></div>
+      <button onclick="logout()">Выйти</button>
+    </div>
+    <h2>Создать новую тему</h2>
+    <input type="text" id="new-title" placeholder="Заголовок темы">
+    <textarea id="new-body" rows="4" placeholder="Текст темы"></textarea>
+    <button onclick="addTopic()">Создать тему</button>
+
+    <h2>Темы форума</h2>
+    <div id="topics-list"></div>
+  </div>
+</div>
+
+<script>
+// ---------- Работа с localStorage ----------
+let users = JSON.parse(localStorage.getItem('forum-users')||'{}');
+let topics = JSON.parse(localStorage.getItem('forum-topics')||'[]');
+let currentUser = localStorage.getItem('forum-current') || null;
+
+function saveUsers() { localStorage.setItem('forum-users', JSON.stringify(users)); }
+function saveTopics() { localStorage.setItem('forum-topics', JSON.stringify(topics)); }
+function saveCurrentUser() { localStorage.setItem('forum-current', currentUser); }
+
+// ---------- Отображение форм ----------
+function showLogin() { document.getElementById('login-form').style.display='block'; document.getElementById('register-form').style.display='none'; }
+function showRegister() { document.getElementById('login-form').style.display='none'; document.getElementById('register-form').style.display='block'; }
+
+// ---------- Регистрация ----------
+function register() {
+  let u = document.getElementById('reg-username').value.trim();
+  let p = document.getElementById('reg-password').value.trim();
+  let err = document.getElementById('reg-error');
+  err.textContent='';
+  if(!u||!p){ err.textContent='Введите имя пользователя и пароль'; return; }
+  if(users[u]){ err.textContent='Пользователь уже существует'; return; }
+  users[u] = {password:p};
+  saveUsers();
+  alert('Регистрация успешна! Войдите.');
+  showLogin();
+}
+
+// ---------- Вход ----------
+function login() {
+  let u = document.getElementById('login-username').value.trim();
+  let p = document.getElementById('login-password').value.trim();
+  let err = document.getElementById('login-error');
+  err.textContent='';
+  if(!u||!p){ err.textContent='Введите имя пользователя и пароль'; return; }
+  if(!users[u] || users[u].password !== p){ err.textContent='Неверные данные'; return; }
+  currentUser = u;
+  saveCurrentUser();
+  showForum();
+}
+
+// ---------- Выход ----------
+function logout() {
+  currentUser = null;
+  saveCurrentUser();
+  document.getElementById('forum').style.display='none';
+  document.getElementById('auth').style.display='block';
+}
+
+// ---------- Отображение форума ----------
+function showForum() {
+  document.getElementById('auth').style.display='none';
+  document.getElementById('forum').style.display='block';
+  document.getElementById('current-user').textContent = currentUser;
+  renderTopics();
+}
+
+// ---------- Создание темы ----------
+function addTopic() {
+  let t = document.getElementById('new-title').value.trim();
+  let b = document.getElementById('new-body').value.trim();
+  if(!t||!b){ alert('Заполните все поля'); return; }
+  topics.unshift({id:Date.now(), title:t, body:b, user:currentUser, replies:[]});
+  saveTopics();
+  document.getElementById('new-title').value='';
+  document.getElementById('new-body').value='';
+  renderTopics();
+}
+
+// ---------- Добавление ответа ----------
+function addReply(topicId) {
+  let input = document.getElementById('reply-'+topicId);
+  let val = input.value.trim();
+  if(!val){ alert('Введите ответ'); return; }
+  let topic = topics.find(x=>x.id===topicId);
+  topic.replies.push({user:currentUser, body:val});
+  saveTopics();
+  renderTopics();
+}
+
+// ---------- Отображение тем ----------
+function renderTopics() {
+  let div = document.getElementById('topics-list');
+  div.innerHTML='';
+  for(let t of topics){
+    let d = document.createElement('div');
+    d.className='topic';
+    d.innerHTML = `<strong>${t.title}</strong> (автор: ${t.user})<p>${t.body}</p>`;
+    for(let r of t.replies){
+      let rep = document.createElement('div');
+      rep.className='reply';
+      rep.innerHTML = `<strong>${r.user}:</strong> ${r.body}`;
+      d.appendChild(rep);
+    }
+    if(currentUser){
+      let ta = document.createElement('textarea');
+      ta.id='reply-'+t.id;
+      ta.rows=2;
+      ta.placeholder='Ваш ответ';
+      let btn = document.createElement('button');
+      btn.textContent='Ответить';
+      btn.onclick=()=>addReply(t.id);
+      d.appendChild(ta);
+      d.appendChild(btn);
+    }
+    div.appendChild(d);
+  }
+}
+
+// ---------- Старт ----------
+if(currentUser) showForum();
+</script>
+</body>
+</html>
