@@ -1,167 +1,173 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Форум в iframe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Форум</title>
 <style>
-body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f5f5; }
-#container { max-width:800px; margin:20px auto; background:#fff; padding:20px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-input, textarea { width:100%; padding:8px; margin:5px 0; box-sizing:border-box; }
-button { padding:8px 12px; margin-top:5px; }
-.topic { border:1px solid #ccc; padding:10px; margin:10px 0; background:#fafafa; }
-.reply { border-top:1px dashed #ccc; padding:5px 0; margin-top:5px; }
-.error { color:red; }
-.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
-a { cursor:pointer; color:blue; text-decoration:underline; }
+body {
+  font-family: system-ui, sans-serif;
+  margin: 20px auto;
+  max-width: 800px;
+  background: #f7f7f7;
+  color: #333;
+}
+h1 {
+  text-align: center;
+}
+#auth, #forum {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+input, button, textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+button {
+  background: #0077ff;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover {
+  background: #0059c1;
+}
+.topic {
+  background: #fff;
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 8px;
+  border-left: 4px solid #0077ff;
+}
+.message {
+  background: #f9f9f9;
+  margin: 5px 0;
+  padding: 8px;
+  border-radius: 5px;
+}
+.toolbar button {
+  width: auto;
+  margin: 2px;
+  background: #e9e9e9;
+  color: #333;
+}
+.toolbar button:hover {
+  background: #ccc;
+}
+[contenteditable] {
+  min-height: 80px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+}
 </style>
 </head>
 <body>
-<div id="container">
-  <div id="auth">
-    <div id="register-form">
-      <h2>Регистрация</h2>
-      <input type="text" id="reg-username" placeholder="Имя пользователя">
-      <input type="password" id="reg-password" placeholder="Пароль">
-      <button onclick="register()">Зарегистрироваться</button>
-      <p>Уже есть аккаунт? <a onclick="showLogin()">Войти</a></p>
-      <p class="error" id="reg-error"></p>
-    </div>
-    <div id="login-form" style="display:none;">
-      <h2>Вход</h2>
-      <input type="text" id="login-username" placeholder="Имя пользователя">
-      <input type="password" id="login-password" placeholder="Пароль">
-      <button onclick="login()">Войти</button>
-      <p>Нет аккаунта? <a onclick="showRegister()">Регистрация</a></p>
-      <p class="error" id="login-error"></p>
-    </div>
+
+<h1>Мини-Форум</h1>
+
+<div id="auth">
+  <h2>Регистрация / Вход</h2>
+  <input id="username" placeholder="Имя пользователя">
+  <input id="password" placeholder="Пароль" type="password">
+  <button onclick="register()">Регистрация</button>
+  <button onclick="login()">Вход</button>
+</div>
+
+<div id="forum" style="display:none;">
+  <h2>Создать новую тему</h2>
+  <input id="topicTitle" placeholder="Название темы">
+  
+  <div class="toolbar">
+    <button onclick="format('bold')"><b>B</b></button>
+    <button onclick="format('italic')"><i>I</i></button>
+    <button onclick="format('insertOrderedList')">1.</button>
+    <button onclick="format('insertUnorderedList')">•</button>
+    <button onclick="format('createLink', prompt('Введите ссылку:'))">🔗</button>
+    <button onclick="format('formatBlock','blockquote')">❝</button>
+    <button onclick="format('formatBlock','pre')">[code]</button>
   </div>
 
-  <div id="forum" style="display:none;">
-    <div class="header">
-      <div>Привет, <span id="current-user"></span></div>
-      <button onclick="logout()">Выйти</button>
-    </div>
-    <h2>Создать новую тему</h2>
-    <input type="text" id="new-title" placeholder="Заголовок темы">
-    <textarea id="new-body" rows="4" placeholder="Текст темы"></textarea>
-    <button onclick="addTopic()">Создать тему</button>
+  <div id="topicText" contenteditable="true" placeholder="Текст сообщения..."></div>
+  <button onclick="createTopic()">Опубликовать тему</button>
 
-    <h2>Темы форума</h2>
-    <div id="topics-list"></div>
-  </div>
+  <h2>Темы</h2>
+  <div id="topics"></div>
 </div>
 
 <script>
-// ---------- Работа с localStorage ----------
-let users = JSON.parse(localStorage.getItem('forum-users')||'{}');
-let topics = JSON.parse(localStorage.getItem('forum-topics')||'[]');
-let currentUser = localStorage.getItem('forum-current') || null;
+let users = JSON.parse(localStorage.getItem('users') || '{}');
+let currentUser = localStorage.getItem('currentUser');
+let topics = JSON.parse(localStorage.getItem('topics') || '[]');
+const authDiv = document.getElementById('auth');
+const forumDiv = document.getElementById('forum');
 
-function saveUsers() { localStorage.setItem('forum-users', JSON.stringify(users)); }
-function saveTopics() { localStorage.setItem('forum-topics', JSON.stringify(topics)); }
-function saveCurrentUser() { localStorage.setItem('forum-current', currentUser); }
+if (currentUser) showForum();
 
-// ---------- Отображение форм ----------
-function showLogin() { document.getElementById('login-form').style.display='block'; document.getElementById('register-form').style.display='none'; }
-function showRegister() { document.getElementById('login-form').style.display='none'; document.getElementById('register-form').style.display='block'; }
-
-// ---------- Регистрация ----------
-function register() {
-  let u = document.getElementById('reg-username').value.trim();
-  let p = document.getElementById('reg-password').value.trim();
-  let err = document.getElementById('reg-error');
-  err.textContent='';
-  if(!u||!p){ err.textContent='Введите имя пользователя и пароль'; return; }
-  if(users[u]){ err.textContent='Пользователь уже существует'; return; }
-  users[u] = {password:p};
-  saveUsers();
-  alert('Регистрация успешна! Войдите.');
-  showLogin();
+function saveData() {
+  localStorage.setItem('users', JSON.stringify(users));
+  localStorage.setItem('topics', JSON.stringify(topics));
 }
 
-// ---------- Вход ----------
-function login() {
-  let u = document.getElementById('login-username').value.trim();
-  let p = document.getElementById('login-password').value.trim();
-  let err = document.getElementById('login-error');
-  err.textContent='';
-  if(!u||!p){ err.textContent='Введите имя пользователя и пароль'; return; }
-  if(!users[u] || users[u].password !== p){ err.textContent='Неверные данные'; return; }
+function register() {
+  let u = username.value.trim();
+  let p = password.value;
+  if (!u || !p) return alert("Введите логин и пароль");
+  if (users[u]) return alert("Такой пользователь уже есть!");
+  users[u] = p;
   currentUser = u;
-  saveCurrentUser();
+  localStorage.setItem('currentUser', u);
+  saveData();
   showForum();
 }
 
-// ---------- Выход ----------
-function logout() {
-  currentUser = null;
-  saveCurrentUser();
-  document.getElementById('forum').style.display='none';
-  document.getElementById('auth').style.display='block';
+function login() {
+  let u = username.value.trim();
+  let p = password.value;
+  if (!u || !p) return alert("Введите логин и пароль");
+  if (users[u] !== p) return alert("Неверный логин или пароль");
+  currentUser = u;
+  localStorage.setItem('currentUser', u);
+  showForum();
 }
 
-// ---------- Отображение форума ----------
 function showForum() {
-  document.getElementById('auth').style.display='none';
-  document.getElementById('forum').style.display='block';
-  document.getElementById('current-user').textContent = currentUser;
+  authDiv.style.display = 'none';
+  forumDiv.style.display = 'block';
   renderTopics();
 }
 
-// ---------- Создание темы ----------
-function addTopic() {
-  let t = document.getElementById('new-title').value.trim();
-  let b = document.getElementById('new-body').value.trim();
-  if(!t||!b){ alert('Заполните все поля'); return; }
-  topics.unshift({id:Date.now(), title:t, body:b, user:currentUser, replies:[]});
-  saveTopics();
-  document.getElementById('new-title').value='';
-  document.getElementById('new-body').value='';
+function format(cmd, val=null) {
+  document.execCommand(cmd, false, val);
+}
+
+function createTopic() {
+  let title = topicTitle.value.trim();
+  let text = topicText.innerHTML.trim();
+  if (!title || !text) return alert("Введите название и текст");
+  topics.unshift({title, text, author: currentUser, date: new Date().toLocaleString()});
+  topicTitle.value = '';
+  topicText.innerHTML = '';
+  saveData();
   renderTopics();
 }
 
-// ---------- Добавление ответа ----------
-function addReply(topicId) {
-  let input = document.getElementById('reply-'+topicId);
-  let val = input.value.trim();
-  if(!val){ alert('Введите ответ'); return; }
-  let topic = topics.find(x=>x.id===topicId);
-  topic.replies.push({user:currentUser, body:val});
-  saveTopics();
-  renderTopics();
-}
-
-// ---------- Отображение тем ----------
 function renderTopics() {
-  let div = document.getElementById('topics-list');
-  div.innerHTML='';
-  for(let t of topics){
-    let d = document.createElement('div');
-    d.className='topic';
-    d.innerHTML = `<strong>${t.title}</strong> (автор: ${t.user})<p>${t.body}</p>`;
-    for(let r of t.replies){
-      let rep = document.createElement('div');
-      rep.className='reply';
-      rep.innerHTML = `<strong>${r.user}:</strong> ${r.body}`;
-      d.appendChild(rep);
-    }
-    if(currentUser){
-      let ta = document.createElement('textarea');
-      ta.id='reply-'+t.id;
-      ta.rows=2;
-      ta.placeholder='Ваш ответ';
-      let btn = document.createElement('button');
-      btn.textContent='Ответить';
-      btn.onclick=()=>addReply(t.id);
-      d.appendChild(ta);
-      d.appendChild(btn);
-    }
-    div.appendChild(d);
-  }
+  topicsDiv.innerHTML = '';
+  topics.forEach((t, i) => {
+    let div = document.createElement('div');
+    div.className = 'topic';
+    div.innerHTML = `<b>${t.title}</b> <small>от ${t.author}, ${t.date}</small><br>${t.text}`;
+    topicsDiv.appendChild(div);
+  });
 }
-
-// ---------- Старт ----------
-if(currentUser) showForum();
 </script>
+
 </body>
 </html>
